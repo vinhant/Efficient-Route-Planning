@@ -6,6 +6,8 @@
 // provide suggestions on how to design / organize your code. It is up to you
 // whether you follow the given advice or do it in some other way.
 
+use phf::phf_map;
+use std::collections::HashMap;
 
 // A node with its OSM id and its latitude / longitude. This is useful for
 // building the graph from an OSM file (we first read the nodes there, and later
@@ -35,30 +37,29 @@ struct Arc {
   cost: i32,
 }
 
-impl Arc {
-    pub fn new(head_node_id: i32, cost: i32) -> Arc {
-        Arc { head_node_id, cost }
-    }
-}
-
 // A road network modelled as an undirected graph. We will use "arc" and "edge",
 // where "arc" is directed and "edge" is undirected. From the outside, we only
 // add "edges", but internally each edge is stored as a pair of "arcs" (with the
 // same pair of adjacent nodes but opposite directions).
 #[derive(Debug)]
-struct RoadNetwork {
+pub struct RoadNetwork {
   // PRIVATE members.
   
   // The number of nodes in the graph.
-  num_nodes: i32,
+  // vtrinh: no need length is returned Vec.len()
+  // num_nodes: i32,
 
   // The number of (undirected) edges in the graph.
-  num_edges: i32,
+  // vtrinh: no need length is returned in adjacent_arcs.len()/2
+  // num_edges: i32,
 
   // The adjacency lists. Note that each edge {u,v} is stored as two arcs: (u,v)
   // and (v,u). The total number of entries in these arrays is therefore exactly twice
   // the number of edges in the graph.
-  adjacent_arcs: Vec<Vec<Arc>>,
+  //adjacent_arcs: Vec<Vec<Arc>>,
+
+  // vtrinh: Wouldn't a Map make more sense?
+  adjacent_arcs: HashMap<i32, Vec<Arc>>,
 
   // The nodes of the graph.
   nodes: Vec<Node>,
@@ -69,7 +70,7 @@ impl RoadNetwork {
  
   // Create an empty network (with zero nodes and zero arcs).
   pub fn new() -> RoadNetwork {
-      RoadNetwork { num_nodes: 0, num_edges: 0, adjacent_arcs: vec!(vec!()), nodes: vec!()}
+      RoadNetwork { /*num_nodes: 0, num_edges: 0, */ adjacent_arcs: HashMap::new(), nodes: vec!()}
   }
 
   // Add a node with the given OSM id and lat/lng coordinates.
@@ -78,7 +79,14 @@ impl RoadNetwork {
   }
 
   // Add an (undirected) edge between the given nodes with the given cost.
+  // vtrinh: duplicate allowed for now
   pub fn add_edge(&mut self, u: i32, v: i32, cost: i32) {
+
+      let mut vec = self.adjacent_arcs.entry(u).or_insert( vec!() );
+      vec.push(Arc {head_node_id: v, cost });
+
+      vec = self.adjacent_arcs.entry(v).or_insert( vec!() );
+      vec.push(Arc {head_node_id: u, cost });
   }
 
   // Read graph from given OSM file.
@@ -87,15 +95,28 @@ impl RoadNetwork {
 
 }
 
+static ROADTYPES: phf::Map<&'static str, u32> = phf_map! {
+    "motorway" => 110,
+    "trunk" => 110,
+    "primary" => 70,
+    "secondary" => 60,
+};
+
 fn main() {
-    let n = Node {   osm_id: 0, latitude: 0.0, longitude: 0.0, };
-    println!("Node: {:?}", n);
+    println!("{:?}", ROADTYPES);    
 
-    let a = Arc::new(0, 0);
-    println!("Arc: {:?}", a);
+    let mut rn = crate::RoadNetwork::new();
+    rn.add_node(111, 11.11, 11.11);
+    rn.add_node(222, 22.22, 22.22);
+    rn.add_node(333, 33.33, 33.33);
+    rn.add_node(444, 44.44, 44.44);
+    rn.add_node(555, 55.55, 55.55);
 
-    let mut rn = RoadNetwork::new();
-    rn.add_node(1, 2.2, 3.3);
+    rn.add_edge(111, 222, 3);
+    rn.add_edge(111, 333, 1);
+    rn.add_edge(222, 333, 1);
+    rn.add_edge(222, 555, 3);
+    rn.add_edge(444, 555, 5);
     println!("RoadNetwork: {:?}", rn);
 }
 
@@ -128,3 +149,23 @@ fn main() {
 //   To add edge from node 1 to 2 with cost 3 in ASCII graph above:
 //   add_edge(0, 1, 3);
 //   // 
+//
+#[cfg(test)]
+mod test {
+    #[test]
+    fn test_graph_from_lecture() {
+        let mut rn = crate::RoadNetwork::new();
+        rn.add_node(111, 11.11, 11.11);
+        rn.add_node(222, 22.22, 22.22);
+        rn.add_node(333, 33.33, 33.33);
+        rn.add_node(444, 44.44, 44.44);
+        rn.add_node(555, 55.55, 55.55);
+
+        rn.add_edge(111, 222, 3);
+        rn.add_edge(111, 333, 1);
+        rn.add_edge(222, 333, 1);
+        rn.add_edge(222, 555, 3);
+        rn.add_edge(444, 555, 5);
+        println!("RoadNetwork: {:?}", rn);
+    }
+}
