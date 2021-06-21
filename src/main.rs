@@ -86,10 +86,10 @@ impl RoadNetwork {
         let mut n = Node { osm_id: 0, latitude: 0.0, longitude: 0.0 };
         for attr in attrs {
             //println!("node {:?} attribute key/value: {:?}/{:?}", e.name(), .unwrap(), str::from_utf8(&attr.value).unwrap());
-            match attr.unwrap() {
-                Attribute{ key: b"id", value}  => n.osm_id = str::from_utf8(&value)?.parse()?,
-                Attribute{ key: b"lat", value}  => n.latitude = str::from_utf8(&value)?.parse()?,
-                Attribute{ key: b"lon", value}  => n.longitude = str::from_utf8(&value)?.parse()?,
+            match attr {
+                Ok(Attribute{ key: b"id", value})  => n.osm_id = str::from_utf8(&value)?.parse()?,
+                Ok(Attribute{ key: b"lat", value})  => n.latitude = str::from_utf8(&value)?.parse()?,
+                Ok(Attribute{ key: b"lon", value})  => n.longitude = str::from_utf8(&value)?.parse()?,
                 _ => break,
             }
         }
@@ -127,22 +127,25 @@ impl RoadNetwork {
                 Event::Empty(e)|Event::Start(e) => {
                     match e.name() {
                         b"nd" =>  { 
-                            let mut iter = e.attributes();
-                            let attr = iter.next().unwrap().unwrap();
-                            v_nodes.push(str::from_utf8(&attr.value)?.parse()?);
+                            if let Some(Ok(attr)) = e.attributes().next() {
+                                v_nodes.push(str::from_utf8(&attr.value)?.parse()?);
+                            }
                         },
                         b"tag" =>  {
                             let mut iter = e.attributes();
-                            let k = iter.next().unwrap();
-                            let v = iter.next().unwrap();
-                            match (k.unwrap(), v.unwrap()) {
-                                (Attribute {key: b"k", value: v}, Attribute {key: b"v", value: v2}) if v.as_ref() == b"highway"  => {
-                                    if let Some(c) =  RoadTypes::from_string(&v2.as_ref()) {
-                                        cost = c.value();
-                                        break;
+                            // Only process tag of type k="highway" and v="road type in enum
+                            // RoadTypes"
+                            if let Some(Ok(Attribute {key: b"k", value: v})) = iter.next() {
+                                if v.as_ref() == b"highway" {
+                                    if let Some(Ok(Attribute {key: b"v", value: v2})) = iter.next() {
+                                        if let Some(c) =  RoadTypes::from_string(&v2.as_ref()) {
+                                            cost = c.value();
+                                            break;
+                                        }
+                                        else { break; }
                                     }
-                                },
-                                _ => (),
+                                }
+                                else { break; }
                             }
                         },
                         _ => (),
@@ -295,8 +298,8 @@ fn main() {
     let mut rn = crate::RoadNetwork::new();
     //rn.read_from_osm_file("tests/quick_xml_reader.xml").unwrap();
     //rn.read_from_osm_file("tests/wiki_example_osm.xml").unwrap();
-    rn.read_from_osm_file("tests/baden-wuerttemberg.osm").unwrap();
-    //rn.read_from_osm_file("tests/saarland.osm").unwrap();
+    //jrn.read_from_osm_file("tests/baden-wuerttemberg.osm").unwrap();
+    rn.read_from_osm_file("tests/saarland.osm").unwrap();
     println!("RoadNetwork number of nodes: {}", rn.nodes.len());
     let arc_count:usize = rn.adjacent_arcs.iter().map(|e| e.len()).sum();
     println!("RoadNetwork number of arcs: {}", arc_count);

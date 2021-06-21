@@ -15,4 +15,10 @@ Thoughts on Lecture 1:
 - Why keep adjacent arcs in a Vec<Vec<Arc>> and nodes in Vec<Node>?  I think HashMap<Node, Vec<Arc>> does both?  Maybe we'll find out later
 - Parsing a 3GB in reasonable time is part of the challenge
 
+My OSM graph results
+Number of nodes (Saarland/Bawu): 1,119,289 / 14,593,458
+Number of arcs (Saarland/Bawu): 227,826 / 2,642,949
+Time to read + construct:  2.8s / 23.2s
+Processor / RAM: Intel i5-4590S at 3.00GHz / 6 GB DDR3
+Language: Rust
 
