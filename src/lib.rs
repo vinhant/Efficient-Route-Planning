@@ -43,11 +43,11 @@ pub struct Node {
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub struct Arc {
     // The id of the head node.
-    head_node_id: usize,
-    idx: usize,
+    pub head_node_id: usize,
+    pub idx: usize,
 
     // The cost of the arc = travel time in seconds (see class comment above).
-    cost: usize,
+    pub cost: usize,
 }
 
 impl Node {
@@ -58,7 +58,7 @@ impl Node {
         const R: f64 = 6371.0 * 1000.0;
         let x = (v.longitude - self.longitude) * (0.5*(v.latitude + self.latitude)).cos();
         let y = v.latitude - self.latitude;
-        ((R * (x*x + y*y).sqrt()) / speed as f64).round() as usize
+        ((R * (x*x + y*y).sqrt()) / (speed*5/18) as f64).round() as usize
     }
 }
 

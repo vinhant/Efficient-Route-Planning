@@ -6,6 +6,9 @@
 // provide suggestions on how to design / organize your code. It is up to you
 // whether you follow the given advice or do it in some other way.
 
+use rand::prelude::*;
+use std::time::{Duration, Instant};
+
 fn main() {
 
     let mut rn = efficient_route_planning::RoadNetwork::new();
@@ -20,6 +23,23 @@ fn main() {
     println!("RoadNetwork number of nodes: {}", rn.nodes.len());
     let arc_count:usize = rn.adjacent_arcs.iter().map(|e| e.len()).sum();
     println!("RoadNetwork number of arcs: {}", arc_count);
+
+    println!("Node 0: {:?}", rn.nodes[0]);
+    println!("Node 0 Arc 0: {:?}, Node: {:?}", rn.adjacent_arcs[0][0], rn.nodes[rn.adjacent_arcs[0][0].idx]);
+    let mut total_cost = 0;
+    let mut total_visited = 0;
+    let mut total_duration = Duration::new(0, 0); 
+    let mut rng = thread_rng();
+    let distr = rand::distributions::Uniform::new_inclusive(0, rn.nodes.len());
+    for _i in 0..100 {
+        let (start, stop) = (rng.sample(distr), rng.sample(distr));
+        let now = Instant::now();
+        let (cost, visited, _) = rn.compute_shortest_path(rn.nodes[start].osm_id, Some(rn.nodes[stop].osm_id));
+        total_duration = total_duration + now.elapsed();
+        total_cost = total_cost + cost.unwrap();
+        total_visited = total_visited + visited.len();
+    }
+    println!("Average Cost, visited.len, time per query: {:?}, {}, {:?}", total_cost/100, total_visited/100, total_duration/100);
 
 }
 

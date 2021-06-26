@@ -10,3 +10,4 @@ edition = "2018"
 # to use `phf` in `no_std` environments
 #phf = { version = "0.9", features = ["macros"] }
 quick-xml = "0.22.0"
+rand = "0.8.4"
