@@ -10,9 +10,9 @@
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::collections::BinaryHeap;
 
 pub mod osm;
+pub mod dijkstra;
 
 // A node with its OSM id and its latitude / longitude. This is useful for
 // building the graph from an OSM file (we first read the nodes there, and later
@@ -174,7 +174,7 @@ impl RoadNetwork {
 
             if self.adjacent_arcs[i].len() == 0 { continue; }
 
-            match self.compute_shortest_path(self.nodes[i].osm_id, None) {
+            match dijkstra::compute_shortest_path(&self, self.nodes[i].osm_id, None) {
                 (_, connected_nodes, _) => { 
                     if  connected_nodes.len() > largest_number_of_connected_nodes { 
                         largest_number_of_connected_nodes = connected_nodes.len(); 
@@ -207,73 +207,4 @@ impl RoadNetwork {
         }
     }
 
-    // Compute the shortest paths from the given source to the given target node.
-    // Returns the cost of the shortest path.
-    // NOTE: If called with target node -1, Dijkstra is run until all nodes
-    // reachable from the source are settled.
-    pub fn compute_shortest_path(&self, source_node_id: usize, target_node_id: Option<usize>) -> (Option<usize>, HashSet<usize>, Option<HashMap<usize, usize>>) {
-
-        let mut visited: HashSet<usize> = HashSet::new();
-
-        let mut distance = vec![usize::MAX; self.nodes.len() as usize];
-
-        let mut previous_node= HashMap::new();
-
-        let mut priority_queue = BinaryHeap::new();
-
-        // Set initial distance to 0 for the source node
-        if let Some(&idx) = self.node_id_to_index.get(&source_node_id)  {
-            distance[idx as usize] = 0;
-            let current_node = Arc {head_node_id: source_node_id, idx: idx as usize, cost: 0};
-            priority_queue.push(current_node);
-        }
-
-
-        while let Some(Arc { head_node_id, idx, cost }) = priority_queue.pop() {
-
-           // println!("Processing: {}, idx: {}, cost: {}", head_node_id, idx, cost);
-            visited.insert(idx);
-
-            if cost > distance[idx] { continue; }
-
-            distance[idx] = cost;
-
-            if Some(head_node_id) == target_node_id {
-                /*
-                let mut idx = idx;
-                loop {
-                    println!("End node/Previous Node {}/{}", self.nodes[idx].osm_id, self.nodes[previous_node[idx]].osm_id);
-                    if self.nodes[idx].osm_id == self.nodes[previous_node[idx]].osm_id { break; }
-                    if source_node_id as usize == previous_node[idx as usize] { break; }
-                    if source_node_id as usize == idx as usize { break; }
-                    idx = previous_node[idx as usize];
-                }*/
-                return (Some(cost), visited, Some(previous_node));
-            }
-            if cost == usize::MAX {
-                return (None, visited, None);
-            }
-            for &arc in self.adjacent_arcs[idx].iter() {
-                if visited.contains(&arc.idx) { continue; }
-                //println!("  Neighbor: {:?}: ", arc);
-                let next = Arc {
-                    head_node_id: arc.head_node_id,
-                    idx: arc.idx,
-                    cost: arc.cost + cost,
-                };
-                //println!(" Next.cost: {}, distance[next.idx]: {}", next.cost, distance[next.idx]);
-                if next.cost < distance[next.idx] {
-                    distance[next.idx] = next.cost;
-                    priority_queue.push(next);
-                    if target_node_id.is_some() {
-                        previous_node.insert(next.idx as usize, idx);
-                    }
-                }
-            }
-            //println!("priority_queue: {:?}", priority_queue);
-        }
-
-        //println!("Previous node len: {:?}", previous_node.len());
-        (None, visited, None)
-    }
 }

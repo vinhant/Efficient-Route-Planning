@@ -10,6 +10,7 @@ use rand::prelude::*;
 use std::time::{Duration, Instant};
 
 use efficient_route_planning::osm;
+use efficient_route_planning::dijkstra;
 
 fn main() {
 
@@ -35,7 +36,7 @@ fn main() {
     for _i in 0..100 {
         let (start, stop) = (rng.sample(distr), rng.sample(distr));
         let now = Instant::now();
-        let (cost, visited, _) = rn.compute_shortest_path(rn.nodes[start].osm_id, Some(rn.nodes[stop].osm_id));
+        let (cost, visited, _) = dijkstra::compute_shortest_path(&rn, rn.nodes[start].osm_id, Some(rn.nodes[stop].osm_id));
         total_duration = total_duration + now.elapsed();
         total_cost = total_cost + cost.unwrap();
         total_visited = total_visited + visited.len();
