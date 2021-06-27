@@ -9,14 +9,15 @@
 use rand::prelude::*;
 use std::time::{Duration, Instant};
 
+use efficient_route_planning::osm;
+
 fn main() {
 
-    let mut rn = efficient_route_planning::RoadNetwork::new();
     //rn.read_from_osm_file("tests/quick_xml_reader.xml").unwrap();
     //rn.read_from_osm_file("tests/wiki_example_osm.xml").unwrap();
-    rn.read_from_osm_file("tests/baden-wuerttemberg.osm").unwrap();
+    //let mut rn = osm::read_from_osm_file("tests/baden-wuerttemberg.osm").unwrap();
     //rn.read_from_osm_file("tests/91030.osm").unwrap();
-    //rn.read_from_osm_file("tests/saarland.osm").unwrap();
+    let mut rn = osm::read_from_osm_file("tests/saarland.osm").unwrap();
     println!("Reducing RoadNetwork");
     rn.reduce_to_largest_connected_component();
     

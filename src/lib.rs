@@ -7,19 +7,12 @@
 // whether you follow the given advice or do it in some other way.
 
 
-use std::borrow::Cow;
 use std::cmp::Ordering;
-use std::str;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::BinaryHeap;
-use std::error::Error;
-use std::io::BufRead;
-use std::f64::consts::PI;
-use quick_xml::events::attributes::Attributes;
-use quick_xml::events::attributes::Attribute;
-use quick_xml::Reader;
-use quick_xml::events::Event;
+
+pub mod osm;
 
 // A node with its OSM id and its latitude / longitude. This is useful for
 // building the graph from an OSM file (we first read the nodes there, and later
@@ -126,23 +119,6 @@ impl RoadNetwork {
         RoadNetwork { /*num_nodes: 0, num_edges: 0, */ adjacent_arcs: vec!(), nodes: vec!(), node_id_to_index: HashMap::new()}
     }
 
-    pub fn add_node_from_event(&mut self, attrs: &mut Attributes)  -> Result<(), Box<dyn Error>> {
-        let mut n = Node { osm_id: 0, latitude: 0.0, longitude: 0.0, };
-        for attr in attrs {
-            //println!("node {:?} attribute key/value: {:?}/{:?}", e.name(), .unwrap(), str::from_utf8(&attr.value).unwrap());
-            match attr {
-                Ok(Attribute{ key: b"id", value})  => n.osm_id = str::from_utf8(&value)?.parse()?,
-                Ok(Attribute{ key: b"lat", value})  => n.latitude = (PI/180.0) * str::from_utf8(&value)?.parse::<f64>()?,
-                Ok(Attribute{ key: b"lon", value})  => n.longitude = (PI/180.0) * str::from_utf8(&value)?.parse::<f64>()?,
-                _ => continue,
-            }
-        }
-        self.node_id_to_index.entry(n.osm_id).or_insert(self.nodes.len() as usize);
-        self.nodes.push(n);
-        self.adjacent_arcs.push(vec!());
-        Ok(())
-    }
-
     pub fn add_node(&mut self, node: Node) {
         self.node_id_to_index.entry(node.osm_id).or_insert(self.nodes.len() as usize);
         self.nodes.push(node);
@@ -185,85 +161,6 @@ impl RoadNetwork {
             },
             _ => { /*println!("Warning nodes not found: tail: {}/{:?}, head: {}/{:?}", tail,self.node_id_to_index.get(&tail), head,  self.node_id_to_index.get(&head)); */}
         }
-    }
-
-    pub fn add_edge_from_event<B: BufRead>(&mut self, reader: &mut Reader<B>)  -> Result<(), Box<dyn Error>> {
-        let mut buf = Vec::new();
-
-        // Save all the "nd ref" in this vec
-        let mut v_nodes:Vec<usize> = vec!();
-
-        let mut speed:usize = 0;
-        // The `Reader` does not implement `Iterator` because it outputs borrowed data (`Cow`s)
-        loop {
-
-            match reader.read_event(&mut buf)? {
-                // Exit when we see </way>
-                Event::End(e) if e.name() == b"way" => { break; },
-
-                Event::Empty(e)|Event::Start(e) => {
-                    match e.name() {
-                        b"nd" =>  { 
-                            if let Some(Ok(attr)) = e.attributes().next() {
-                                v_nodes.push(str::from_utf8(&attr.value)?.parse()?);
-                            }
-                        },
-                        b"tag" =>  {
-                            let mut iter = e.attributes();
-                            // Only process tag of type k="highway" and v="road type in enum
-                            // RoadTypes"
-                            if let Some(Ok(Attribute {key: b"k", value:Cow::Borrowed( b"highway") })) = iter.next() {
-                                if let Some(Ok(Attribute {key: b"v", value: v2})) = iter.next() {
-                                    if let Some(c) =  RoadTypes::from_string(&v2.as_ref()) {
-                                        speed = c.value();
-                                        break;
-                                    }
-                                    else { break; }
-                                }
-                            }
-                        },
-                        _ => (),
-                    }
-                },
-                _ => () // There are several other `Event`s we do not consider here
-            }
-
-            // if we don't keep a borrow elsewhere, we can clear the buffer to keep memory usage low
-            buf.clear();
-        }
-
-        if speed > 0 {
-            for i in v_nodes.windows(2) {
-                self.add_edge_calc_cost_from_speed(i[0], i[1], speed);
-                //self.add_edge(i[0], i[1], speed);
-            }
-        }
-        Ok(())
-    }
-
-    // Read graph from given OSM file.
-    pub fn read_from_osm_file(&mut self, filename: &str) -> Result<(), Box<dyn Error>> {
-        let mut reader = Reader::from_file(filename)?;
-        reader.trim_text(true);
-
-        let mut buf = Vec::new();
-
-        // The `Reader` does not implement `Iterator` because it outputs borrowed data (`Cow`s)
-        loop {
-            match reader.read_event(&mut buf)? {
-                Event::Empty(e)|Event::Start(e) => match e.name() {
-                    b"node" => self.add_node_from_event(&mut e.attributes())?,
-                    b"way" => self.add_edge_from_event(&mut reader)?,
-                    _ => (),
-                },
-                Event::Eof => break, // exits the loop when reaching end of file
-                _ => () // There are several other `Event`s we do not consider here
-            }
-
-            // if we don't keep a borrow elsewhere, we can clear the buffer to keep memory usage low
-            buf.clear();
-        }
-        Ok(())
     }
 
     pub fn reduce_to_largest_connected_component(&mut self) {
@@ -378,67 +275,5 @@ impl RoadNetwork {
 
         //println!("Previous node len: {:?}", previous_node.len());
         (None, visited, None)
-    }
-}
-
-#[derive(Debug)]
-enum RoadTypes {
-    Motorway,
-        Trunk,
-        Primary,
-        Secondary,
-        Tertiary,
-        MotorwayLink,
-        TrunkLink,
-        PrimaryLink,
-        SecondaryLink,
-        Road,
-        Unclassified,
-        Residential,
-        Unsurfaced,
-        LivingStreet,
-        Service,
-}
-
-// This seems to be the best type
-impl RoadTypes {
-    fn from_string(s: &[u8]) -> Option<RoadTypes> {
-        match s {
-            b"motorway" => Some(RoadTypes::Motorway),
-            b"trunk" => Some(RoadTypes::Trunk),
-            b"primary" => Some(RoadTypes::Primary),
-            b"secondary" => Some(RoadTypes::Secondary),
-            b"tertiary" => Some(RoadTypes::Tertiary),
-            b"motorway_link" => Some(RoadTypes::MotorwayLink),
-            b"trunk_link" => Some(RoadTypes::TrunkLink),
-            b"primary_link" => Some(RoadTypes::PrimaryLink),
-            b"secondary_link" => Some(RoadTypes::SecondaryLink),
-            b"road" => Some(RoadTypes::Road),
-            b"unclassified" => Some(RoadTypes::Unclassified),
-            b"residential" => Some(RoadTypes::Residential),
-            b"unsurfaced" => Some(RoadTypes::Unsurfaced),
-            b"living_street" => Some(RoadTypes::LivingStreet),
-            b"service" => Some(RoadTypes::Service),
-            _ => None,
-        }
-    }
-    fn value(&self) -> usize {
-        match *self {
-            RoadTypes::Motorway => 110,
-            RoadTypes::Trunk => 110,
-            RoadTypes::Primary => 70,
-            RoadTypes::Secondary => 60,
-            RoadTypes::Tertiary => 50,
-            RoadTypes::MotorwayLink => 50,
-            RoadTypes::TrunkLink => 50,
-            RoadTypes::PrimaryLink => 50,
-            RoadTypes::SecondaryLink => 50,
-            RoadTypes::Road => 40,
-            RoadTypes::Unclassified => 40,
-            RoadTypes::Residential => 30,
-            RoadTypes::Unsurfaced => 30,
-            RoadTypes::LivingStreet => 10,
-            RoadTypes::Service => 5,
-        }
     }
 }
