@@ -19,6 +19,8 @@ use quick_xml::events::attributes::Attribute;
 use quick_xml::Reader;
 use quick_xml::events::Event;
 
+pub const MAX_SPEED: usize = 110;
+
 //pub mod osm {
     fn add_node_from_event(rn: &mut RoadNetwork, attrs: &mut Attributes)  -> Result<(), Box<dyn Error>> {
         let mut n = Node { osm_id: 0, latitude: 0.0, longitude: 0.0, };

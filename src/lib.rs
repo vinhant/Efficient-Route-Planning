@@ -7,12 +7,12 @@
 // whether you follow the given advice or do it in some other way.
 
 
-use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
 pub mod osm;
 pub mod dijkstra;
+pub mod astar_landmark_triangle_inequality;
 
 // A node with its OSM id and its latitude / longitude. This is useful for
 // building the graph from an OSM file (we first read the nodes there, and later
@@ -33,7 +33,7 @@ pub struct Node {
 // the node on the other side, the so-called head node of the arc. Arc costs are
 // travel times and counted in seconds, that way we can use an integer to store
 // them and have no issues with rounding.
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct Arc {
     // The id of the head node.
     pub head_node_id: usize,
@@ -41,6 +41,7 @@ pub struct Arc {
 
     // The cost of the arc = travel time in seconds (see class comment above).
     pub cost: usize,
+    pub speed: usize,
 }
 
 impl Node {
@@ -52,26 +53,6 @@ impl Node {
         let x = (v.longitude - self.longitude) * (0.5*(v.latitude + self.latitude)).cos();
         let y = v.latitude - self.latitude;
         ((R * (x*x + y*y).sqrt()) / (speed*5/18) as f64).round() as usize
-    }
-}
-
-// The priority queue depends on `Ord`.
-// Explicitly implement the trait so the queue becomes a min-heap
-// instead of a max-heap.
-impl Ord for Arc {
-    fn cmp(&self, other: &Self) -> Ordering {
-        // Notice that the we flip the ordering on costs.
-        // In case of a tie we compare positions - this step is necessary
-        // to make implementations of `PartialEq` and `Ord` consistent.
-        other.cost.cmp(&self.cost)
-            .then_with(|| self.idx.cmp(&other.idx))
-    }
-}
-
-// `PartialOrd` needs to be implemented as well.
-impl PartialOrd for Arc {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
     }
 }
 
@@ -133,8 +114,8 @@ impl RoadNetwork {
                 let node1 = &self.nodes[*idx_u as usize];
                 let node2 = &self.nodes[*idx_v as usize];
                 let cost = node1.cost(node2, speed);
-                &self.adjacent_arcs[*idx_u as usize].push(Arc {head_node_id: v, idx: *idx_v as usize, cost});
-                &self.adjacent_arcs[*idx_v as usize].push(Arc {head_node_id: u, idx: *idx_u as usize, cost});
+                &self.adjacent_arcs[*idx_u as usize].push(Arc {head_node_id: v, idx: *idx_v as usize, cost, speed});
+                &self.adjacent_arcs[*idx_v as usize].push(Arc {head_node_id: u, idx: *idx_u as usize, cost, speed});
             }
             else {
                 println!("Warning node not found: {}", v);
@@ -148,16 +129,16 @@ impl RoadNetwork {
     pub fn add_edge(&mut self, u: usize, v: usize, cost: usize) {
         if let Some(idx_u) = self.node_id_to_index.get(&u) {
             if let Some(idx_v) = self.node_id_to_index.get(&v) {
-                &self.adjacent_arcs[*idx_u as usize].push(Arc {head_node_id: v, idx: *idx_v as usize, cost});
-                &self.adjacent_arcs[*idx_v as usize].push(Arc {head_node_id: u, idx: *idx_u as usize, cost});
+                &self.adjacent_arcs[*idx_u as usize].push(Arc {head_node_id: v, idx: *idx_v as usize, cost, speed: 0});
+                &self.adjacent_arcs[*idx_v as usize].push(Arc {head_node_id: u, idx: *idx_u as usize, cost, speed: 0});
             }
         }
     }
 
-    pub fn add_one_way_edge(&mut self, tail: usize, head: usize, cost: usize) {
+    pub fn add_one_way_edge(&mut self, tail: usize, head: usize, cost: usize, speed: usize) {
         match (self.node_id_to_index.get(&tail), self.node_id_to_index.get(&head)) {
             (Some(idx_u), Some(idx_v)) => {
-                &self.adjacent_arcs[*idx_u as usize].push(Arc {head_node_id: head, idx: *idx_v as usize, cost});
+                &self.adjacent_arcs[*idx_u as usize].push(Arc {head_node_id: head, idx: *idx_v as usize, cost, speed});
             },
             _ => { /*println!("Warning nodes not found: tail: {}/{:?}, head: {}/{:?}", tail,self.node_id_to_index.get(&tail), head,  self.node_id_to_index.get(&head)); */}
         }
@@ -165,7 +146,7 @@ impl RoadNetwork {
 
     pub fn reduce_to_largest_connected_component(&mut self) {
         let mut visited: HashSet<usize> = HashSet::new();
-        let mut largest_connected_nodes: Option<HashSet<usize>> = None;
+        let mut largest_connected_nodes: HashMap<usize, usize> = HashMap::new();
         let mut largest_number_of_connected_nodes = 0;
         //println!("Nodes.len(): {}", self.nodes.len());
         for i in 0..self.nodes.len() {
@@ -174,29 +155,31 @@ impl RoadNetwork {
 
             if self.adjacent_arcs[i].len() == 0 { continue; }
 
-            match dijkstra::compute_shortest_path(&self, self.nodes[i].osm_id, None) {
-                (_, connected_nodes, _) => { 
-                    if  connected_nodes.len() > largest_number_of_connected_nodes { 
-                        largest_number_of_connected_nodes = connected_nodes.len(); 
-                        largest_connected_nodes = Some(connected_nodes.clone());
+            match dijkstra::compute_shortest_path(&self.nodes, &self.adjacent_arcs, i, None, |_,_| 0) {
+                (_, v, Some(previous_nodes)) => { 
+                    if  previous_nodes.len() > largest_number_of_connected_nodes { 
+                        largest_number_of_connected_nodes = previous_nodes.len(); 
+                        largest_connected_nodes = previous_nodes.clone();
                     }
-                    visited.extend(connected_nodes);
+                    visited.extend(v);
                 },
+                _ => ()
             }
             //break;
         }
 
-        if let Some(largest_connected_nodes) = largest_connected_nodes {
+        //if let Some(largest_connected_nodes) = largest_connected_nodes {
             //println!("Largest connected nodes: {:?}", largest_connected_nodes);
             let mut rn =  RoadNetwork::new();
-            for &idx in &largest_connected_nodes {
+            for &idx in largest_connected_nodes.keys() {
                 rn.add_node(self.nodes[idx as usize].clone());
             }
+            //rn.add_node(self.nodes[idx as usize].clone());
             //println!("Node id to index: {:?}", rn.node_id_to_index);
-            for &idx in &largest_connected_nodes {
+            for &idx in largest_connected_nodes.keys() {
                 for arc in &self.adjacent_arcs[idx as usize] {
-                    if largest_connected_nodes.contains(&arc.idx) {
-                        rn.add_one_way_edge(self.nodes[idx].osm_id, arc.head_node_id, arc.cost);
+                    if largest_connected_nodes.contains_key(&arc.idx) {
+                        rn.add_one_way_edge(self.nodes[idx].osm_id, arc.head_node_id, arc.cost, arc.speed);
                     }
                 }
             };
@@ -204,7 +187,7 @@ impl RoadNetwork {
             self.nodes = rn.nodes;
             self.adjacent_arcs = rn.adjacent_arcs;
             self.node_id_to_index = rn.node_id_to_index;
-        }
+        //}
     }
 
 }

@@ -41,3 +41,17 @@ Average Cost, visited.len, time per query: 5629, 1186284, 879.037662ms
 
 Processor / RAM: Intel i5-4590S at 3.00GHz / 6 GB DDR3
 Language: Rust 1.53
+
+
+## End of Lecture Thoughts
+
+Thoughts on Rust
+- I feel like I'm not getting Option anymore
+- After refactoring in smaller files, I'm starting to get modules.  Rust is opinionated about how a project should be laid out.  
+- The Rust documentation is really good.  Every function has an example.  Every module has 5 pages of what the module is about.  (I admin I cheated a little bit by using Rust's documentation of Dijkstra)
+
+Saarland Results:
+Average Cost, visited.len, time per query: 1944, 58461, 38.589222ms
+
+Ba-wu Results:
+Average Cost, visited.len, time per query: 6397, 606954, 541.747541ms

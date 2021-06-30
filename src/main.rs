@@ -14,10 +14,7 @@ use efficient_route_planning::dijkstra;
 
 fn main() {
 
-    //rn.read_from_osm_file("tests/quick_xml_reader.xml").unwrap();
-    //rn.read_from_osm_file("tests/wiki_example_osm.xml").unwrap();
     //let mut rn = osm::read_from_osm_file("tests/baden-wuerttemberg.osm").unwrap();
-    //rn.read_from_osm_file("tests/91030.osm").unwrap();
     let mut rn = osm::read_from_osm_file("tests/saarland.osm").unwrap();
     println!("Reducing RoadNetwork");
     rn.reduce_to_largest_connected_component();
@@ -36,10 +33,13 @@ fn main() {
     for _i in 0..100 {
         let (start, stop) = (rng.sample(distr), rng.sample(distr));
         let now = Instant::now();
-        let (cost, visited, _) = dijkstra::compute_shortest_path(&rn, rn.nodes[start].osm_id, Some(rn.nodes[stop].osm_id));
-        total_duration = total_duration + now.elapsed();
-        total_cost = total_cost + cost.unwrap();
-        total_visited = total_visited + visited.len();
+        //println!("Computing heuristic");
+        //println!("H: {:?}", h);
+        if let (Some(cost), _, Some(previous_nodes)) = dijkstra::compute_shortest_path(&rn.nodes, &rn.adjacent_arcs, start, Some(stop), |_,_| 0) {
+            total_duration = total_duration + now.elapsed();
+            total_cost = total_cost + cost;
+            total_visited = total_visited + previous_nodes.len();
+        }
     }
     println!("Average Cost, visited.len, time per query: {:?}, {}, {:?}", total_cost/100, total_visited/100, total_duration/100);
 
@@ -77,6 +77,7 @@ fn main() {
 //
 #[cfg(test)]
 mod test {
+    use efficient_route_planning::dijkstra;
 
     #[test]
     fn test_cost_between_two_nodes() {
@@ -114,8 +115,8 @@ mod test {
         rn.add_edge(666, 777, 5);
         println!("RoadNetwork: {:?}", rn);
 
-        match rn.compute_shortest_path(111, Some(444)) {
-            (Some(cost), _, Some(path)) => {
+        match dijkstra::compute_shortest_path(&rn, None, 111, Some(444)) {
+            (Some(_cost), _, Some(path)) => {
 //                println!("Shortest path 111 to 444: {:?}", cost);
                 let mut old_idx = rn.node_id_to_index.get(&444).unwrap().clone();
                 while let Some(&current_idx) = path.get(&old_idx) { 
@@ -137,19 +138,6 @@ mod test {
 */
         rn.reduce_to_largest_connected_component();
         println!("RoadNetwork: {:?}", rn);
-    }
-
-    #[test]
-    fn test_91030() {
-        let mut rn = efficient_route_planning::RoadNetwork::new();
-        rn.read_from_osm_file("tests/91030.osm");
-        //println!("RoadNetwork: {:?}", rn);
-        println!("Nodes: {}", rn.nodes.len());
-        println!("Arcs: {}", rn.adjacent_arcs.len());
-
-        //let cost = rn.compute_shortest_path(2462004429, Some(122833239));
-        //println!("Shortest path 2462004429 to 122833239 : {:?}", cost);
-        rn.reduce_to_largest_connected_component();
     }
 
 }
