@@ -156,7 +156,7 @@ impl RoadNetwork {
             if self.adjacent_arcs[i].len() == 0 { continue; }
 
             match dijkstra::compute_shortest_path(&self.nodes, &self.adjacent_arcs, i, None, |_,_| 0) {
-                (_, v, Some(previous_nodes)) => { 
+                (_, v, Some(previous_nodes), _) => { 
                     if  previous_nodes.len() > largest_number_of_connected_nodes { 
                         largest_number_of_connected_nodes = previous_nodes.len(); 
                         largest_connected_nodes = previous_nodes.clone();

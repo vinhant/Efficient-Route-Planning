@@ -38,7 +38,7 @@ impl PartialOrd for State {
 // NOTE: If called with target node -1, Dijkstra is run until all nodes
 // reachable from the source are settled.
 //pub fn compute_shortest_path(rn: &RoadNetwork, h: Option<&Vec<usize>>, source_node_id: usize, target_node_id: Option<usize>) -> (Option<usize>, HashSet<usize>, Option<HashMap<usize, usize>>) {
-pub fn compute_shortest_path<F>(nodes: &Vec<Node>, arcs: &Vec<Vec<Arc>>, s: usize, t: Option<usize>, h: F) -> (Option<usize>, HashSet<usize>, Option<HashMap<usize, usize>>) where 
+pub fn compute_shortest_path<F>(nodes: &Vec<Node>, arcs: &Vec<Vec<Arc>>, s: usize, t: Option<usize>, h: F) -> (Option<usize>, HashSet<usize>, Option<HashMap<usize, usize>>, Vec<usize>) where 
 F: Fn(&usize, &usize) -> usize
 {
 
@@ -76,7 +76,7 @@ F: Fn(&usize, &usize) -> usize
         visited.insert(idx);
 
         if Some(idx) == t {
-            return (Some(g_score[idx]), visited, Some(previous_node));
+            return (Some(g_score[idx]), visited, Some(previous_node), g_score);
         }
 
         for &arc in arcs[idx].iter() {
@@ -96,6 +96,6 @@ F: Fn(&usize, &usize) -> usize
 
     //println!("Previous node len: {:?}", previous_node.len());
     //println!("Target not reached: {}/{:?}", source_node_id, target_node_id);
-    (None, visited, Some(previous_node))
+    (None, visited, Some(previous_node), g_score)
 }
 
