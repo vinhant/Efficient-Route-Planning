@@ -17,7 +17,7 @@ use std::time::{Duration, Instant};
 use rand::prelude::*;
 use crate::Arc;
 use crate::Node;
-use crate::dijkstra;
+use crate::dijkstra::Dijkstra;
 
 pub struct LandmarkAlgorithm {
   // PUBLIC members.
@@ -35,7 +35,7 @@ pub struct LandmarkAlgorithm {
 }
 
 impl LandmarkAlgorithm {
-    pub fn new(nodes: &Vec<Node>, adjacent_arcs: &Vec<Vec<Arc>>, num_landmarks: usize) -> LandmarkAlgorithm {
+    pub fn new(nodes: &Vec<Node>, adjacent_arcs: &mut Vec<Vec<Arc>>, num_landmarks: usize) -> LandmarkAlgorithm {
         let mut alt = LandmarkAlgorithm{ landmarks: vec![0; num_landmarks], landmark_distances: vec![vec![0; num_landmarks]; nodes.len()] }; 
         alt.select_landmarks(nodes.len(), num_landmarks);
         alt.precompute_landmark_distances(nodes, adjacent_arcs);
@@ -54,13 +54,15 @@ impl LandmarkAlgorithm {
     // Precompute the distances to and from the selected landmarks.
     // NOTE: For our undirected / symmetric graphs, the distances *from* the
     // landmarks are enough, see Array<Array<int>> landmarkDistances below.
-    pub fn precompute_landmark_distances(&mut self, nodes: &Vec<Node>, adjacent_arcs: &Vec<Vec<Arc>>) -> () {
+    pub fn precompute_landmark_distances(&mut self, nodes: &Vec<Node>, adjacent_arcs: &mut Vec<Vec<Arc>>) -> () {
         assert_eq!(nodes.len(), self.landmark_distances.len());
 
         let mut total_duration = Duration::new(0, 0); 
         let now = Instant::now();
+
+        let dijkstra = Dijkstra { consider_arc_flags: false};
         for t in 0..self.landmarks.len() {
-            let (_, _, _, g_score) = dijkstra::compute_shortest_path(nodes, adjacent_arcs, self.landmarks[t], None, |_,_| 0);
+            let (_, _, _, g_score) = dijkstra.compute_shortest_path(nodes, adjacent_arcs, self.landmarks[t], None, |_,_| 0);
             for i in 0..g_score.len() {
                     self.landmark_distances[i][t] = g_score[i];
             }
@@ -77,9 +79,10 @@ impl LandmarkAlgorithm {
     // using A* with the landmark heuristic.
     // NOTE: this algorithm only works in point-to-point mode, so the option
     // targetNodeId == -1 does not make sense here.
-    pub fn compute_shortest_path(&self, nodes: &Vec<Node>, adjacent_arcs: &Vec<Vec<Arc>>, s: usize, t: usize) -> (Option<usize>, HashSet<usize>) {
+    pub fn compute_shortest_path(&self, nodes: &Vec<Node>, adjacent_arcs: &mut Vec<Vec<Arc>>, s: usize, t: usize) -> (Option<usize>, HashSet<usize>) {
 
-        let (cost, visited, _, _) = dijkstra::compute_shortest_path(
+        let dijkstra = Dijkstra { consider_arc_flags: false};
+        let (cost, visited, _, _) = dijkstra.compute_shortest_path(
             nodes, 
             adjacent_arcs, 
             s, 

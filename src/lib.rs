@@ -13,6 +13,7 @@ use std::collections::HashSet;
 pub mod osm;
 pub mod dijkstra;
 pub mod astar_landmark_triangle_inequality;
+pub mod arc_flags;
 
 // A node with its OSM id and its latitude / longitude. This is useful for
 // building the graph from an OSM file (we first read the nodes there, and later
@@ -26,6 +27,18 @@ pub struct Node {
     // The latitude and longitude (in radian).  Radian= Degrees * PI / 180
     pub latitude: f64,
     pub longitude: f64,
+}
+
+impl Node {
+    pub fn cost(&self, v: &Node, speed: usize) -> usize {
+        //println!("Node 1: {:?}", self);
+        //println!("Node 2: {:?}", v);
+        // Quick distance from this node to Arc's node 
+        const R: f64 = 6371.0 * 1000.0;
+        let x = (v.longitude - self.longitude) * (0.5*(v.latitude + self.latitude)).cos();
+        let y = v.latitude - self.latitude;
+        ((R * (x*x + y*y).sqrt()) / (speed*5/18) as f64).round() as usize
+    }
 }
 
 // An arc, as used in the adjacency lists below. Note all arcs from a single adjacency
@@ -42,20 +55,15 @@ pub struct Arc {
     // The cost of the arc = travel time in seconds (see class comment above).
     pub cost: usize,
     pub speed: usize,
+
+    pub arc_flag: bool,
 }
 
-impl Node {
-    pub fn cost(&self, v: &Node, speed: usize) -> usize {
-        //println!("Node 1: {:?}", self);
-        //println!("Node 2: {:?}", v);
-        // Quick distance from this node to Arc's node 
-        const R: f64 = 6371.0 * 1000.0;
-        let x = (v.longitude - self.longitude) * (0.5*(v.latitude + self.latitude)).cos();
-        let y = v.latitude - self.latitude;
-        ((R * (x*x + y*y).sqrt()) / (speed*5/18) as f64).round() as usize
+impl Arc {
+    pub fn new(head_node_id: usize, idx: usize, cost: usize, speed: usize) -> Arc {
+        Arc { head_node_id, idx, cost, speed, arc_flag: false }
     }
 }
-
 // A road network modelled as an undirected graph. We will use "arc" and "edge",
 // where "arc" is directed and "edge" is undirected. From the outside, we only
 // add "edges", but internally each edge is stored as a pair of "arcs" (with the
@@ -114,8 +122,8 @@ impl RoadNetwork {
                 let node1 = &self.nodes[*idx_u as usize];
                 let node2 = &self.nodes[*idx_v as usize];
                 let cost = node1.cost(node2, speed);
-                &self.adjacent_arcs[*idx_u as usize].push(Arc {head_node_id: v, idx: *idx_v as usize, cost, speed});
-                &self.adjacent_arcs[*idx_v as usize].push(Arc {head_node_id: u, idx: *idx_u as usize, cost, speed});
+                &self.adjacent_arcs[*idx_u as usize].push(Arc::new(v, *idx_v as usize, cost, speed));
+                &self.adjacent_arcs[*idx_v as usize].push(Arc::new(u, *idx_u as usize, cost, speed));
             }
             else {
                 println!("Warning node not found: {}", v);
@@ -129,8 +137,8 @@ impl RoadNetwork {
     pub fn add_edge(&mut self, u: usize, v: usize, cost: usize) {
         if let Some(idx_u) = self.node_id_to_index.get(&u) {
             if let Some(idx_v) = self.node_id_to_index.get(&v) {
-                &self.adjacent_arcs[*idx_u as usize].push(Arc {head_node_id: v, idx: *idx_v as usize, cost, speed: 0});
-                &self.adjacent_arcs[*idx_v as usize].push(Arc {head_node_id: u, idx: *idx_u as usize, cost, speed: 0});
+                &self.adjacent_arcs[*idx_u as usize].push(Arc::new(v, *idx_v as usize, cost, 0));
+                &self.adjacent_arcs[*idx_v as usize].push(Arc::new(u, *idx_u as usize, cost, 0));
             }
         }
     }
@@ -138,7 +146,7 @@ impl RoadNetwork {
     pub fn add_one_way_edge(&mut self, tail: usize, head: usize, cost: usize, speed: usize) {
         match (self.node_id_to_index.get(&tail), self.node_id_to_index.get(&head)) {
             (Some(idx_u), Some(idx_v)) => {
-                &self.adjacent_arcs[*idx_u as usize].push(Arc {head_node_id: head, idx: *idx_v as usize, cost, speed});
+                &self.adjacent_arcs[*idx_u as usize].push(Arc::new(head, *idx_v as usize, cost, speed));
             },
             _ => { /*println!("Warning nodes not found: tail: {}/{:?}, head: {}/{:?}", tail,self.node_id_to_index.get(&tail), head,  self.node_id_to_index.get(&head)); */}
         }
@@ -149,14 +157,16 @@ impl RoadNetwork {
         let mut largest_connected_nodes: HashMap<usize, usize> = HashMap::new();
         let mut largest_number_of_connected_nodes = 0;
         //println!("Nodes.len(): {}", self.nodes.len());
+        let dijkstra = dijkstra::Dijkstra{ consider_arc_flags: false };
+
         for i in 0..self.nodes.len() {
             if visited.contains(&i) { continue };
             visited.insert(i);
 
             if self.adjacent_arcs[i].len() == 0 { continue; }
 
-            match dijkstra::compute_shortest_path(&self.nodes, &self.adjacent_arcs, i, None, |_,_| 0) {
-                (_, v, Some(previous_nodes), _) => { 
+            match dijkstra.compute_shortest_path(&self.nodes, &mut self.adjacent_arcs, i, None, |_,_| 0) {
+                (_, v, previous_nodes, _) => { 
                     if  previous_nodes.len() > largest_number_of_connected_nodes { 
                         largest_number_of_connected_nodes = previous_nodes.len(); 
                         largest_connected_nodes = previous_nodes.clone();

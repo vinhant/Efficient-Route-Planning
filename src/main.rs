@@ -12,11 +12,12 @@ use std::time::{Duration, Instant};
 use efficient_route_planning::osm;
 //use efficient_route_planning::dijkstra;
 use efficient_route_planning::astar_landmark_triangle_inequality::LandmarkAlgorithm;
+use efficient_route_planning::arc_flags::ArcFlagsAlgorithm;
 
 fn main() {
 
-    let mut rn = osm::read_from_osm_file("tests/baden-wuerttemberg.osm").unwrap();
-    //let mut rn = osm::read_from_osm_file("tests/saarland.osm").unwrap();
+    //let mut rn = osm::read_from_osm_file("tests/baden-wuerttemberg.osm").unwrap();
+    let mut rn = osm::read_from_osm_file("tests/saarland.osm").unwrap();
     println!("Reducing RoadNetwork");
     rn.reduce_to_largest_connected_component();
     
@@ -31,7 +32,11 @@ fn main() {
     let mut total_duration = Duration::new(0, 0); 
     let mut rng = thread_rng();
     let distr = rand::distributions::Uniform::new_inclusive(0, rn.nodes.len());
-    let alt = LandmarkAlgorithm::new(&rn.nodes, &rn.adjacent_arcs, 42);
+    //let alt = LandmarkAlgorithm::new(&rn.nodes, &mut rn.adjacent_arcs, 42);
+    let algo = ArcFlagsAlgorithm { };
+
+    // Saarland: [49.20..49.25] × [6.95..7.05]
+    algo.precompute_arc_flags(&rn.nodes, &mut rn.adjacent_arcs, 49.20, 49.25, 6.95, 7.05);
 
     for _i in 0..100 {
         let (start, stop) = (rng.sample(distr), rng.sample(distr));
@@ -39,7 +44,7 @@ fn main() {
         //println!("Computing heuristic");
         //println!("H: {:?}", h);
         //if let (Some(cost), visited, Some(previous_nodes)) = dijkstra::compute_shortest_path(&rn.nodes, &rn.adjacent_arcs, start, Some(stop), |_,_| 0) {
-        if let (Some(cost), visited) = alt.compute_shortest_path(&rn.nodes, &rn.adjacent_arcs, start, stop) {
+        if let (Some(cost), visited) = algo.compute_shortest_path(&rn.nodes, &mut rn.adjacent_arcs, start, stop) {
             total_duration = total_duration + now.elapsed();
             total_cost = total_cost + cost;
             total_visited = total_visited + visited.len();
@@ -118,11 +123,12 @@ mod test {
         rn.add_edge(666, 777, 5);
         println!("RoadNetwork: {:?}", rn);
 
-        match dijkstra::compute_shortest_path(&rn.nodes, &rn.adjacent_arcs, 111, Some(444), |_,_| 0) {
-            (Some(_cost), _, Some(path), _) => {
+        let dijkstra = efficient_route_planning::dijkstra::Dijkstra { consider_arc_flags: false};
+        match dijkstra.compute_shortest_path(&rn.nodes, &mut rn.adjacent_arcs, 111, Some(444), |_,_| 0) {
+            (Some(_cost), _, previous_nodes, _) => {
 //                println!("Shortest path 111 to 444: {:?}", cost);
                 let mut old_idx = rn.node_id_to_index.get(&444).unwrap().clone();
-                while let Some(&current_idx) = path.get(&old_idx) { 
+                while let Some(&current_idx) = previous_nodes.get(&old_idx) { 
                     println!("Node: {:?}", rn.nodes[current_idx as usize]); 
                     old_idx = current_idx;
                 }
