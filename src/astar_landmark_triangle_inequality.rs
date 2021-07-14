@@ -1,11 +1,8 @@
-// Copyright 2012, University of Freiburg,
-// Chair of Algorithms and Data Structures.
-// Author: Hannah Bast <bast@informatik.uni-freiburg.de>.
+// Author: Vinh-An Trinh
+// Copyright 2021
 
-// Disclaimer: this is a *language-unspecific* declaration. Its purpose is to
-// provide suggestions on how to design / organize your code. It is up to you
-// whether you follow the given advice or do it in some other way.
-
+// My implementation of Lecture 3 class given by Prof. Dr. Hannah Bast <bast@informatik.uni-freiburg.de>
+// Class wiki: https://ad-wiki.informatik.uni-freiburg.de/teaching/EfficientRoutePlanningSS2012
 
 // An implementation of A* with the landmarks heuristic, as explained in
 // Lecture 3 of the course Efficient Route Planning, SS 2012.

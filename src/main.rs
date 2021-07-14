@@ -1,23 +1,21 @@
-// Copyright 2012, University of Freiburg,
-// Chair of Algorithms and Data Structures.
-// Author: Hannah Bast <bast@informatik.uni-freiburg.de>.
+// Author: Vinh-An Trinh
+// Copyright 2021
 
-// Disclaimer: this is a *language-unspecific* declaration. Its purpose is to
-// provide suggestions on how to design / organize your code. It is up to you
-// whether you follow the given advice or do it in some other way.
+// My implementation of Lecture 3 class given by Prof. Dr. Hannah Bast <bast@informatik.uni-freiburg.de>
+// Class wiki: https://ad-wiki.informatik.uni-freiburg.de/teaching/EfficientRoutePlanningSS2012
 
 use rand::prelude::*;
 use std::time::{Duration, Instant};
 
 use efficient_route_planning::osm;
 //use efficient_route_planning::dijkstra;
-use efficient_route_planning::astar_landmark_triangle_inequality::LandmarkAlgorithm;
+//use efficient_route_planning::astar_landmark_triangle_inequality::LandmarkAlgorithm;
 use efficient_route_planning::arc_flags::ArcFlagsAlgorithm;
 
 fn main() {
 
-    //let mut rn = osm::read_from_osm_file("tests/baden-wuerttemberg.osm").unwrap();
-    let mut rn = osm::read_from_osm_file("tests/saarland.osm").unwrap();
+    let mut rn = osm::read_from_osm_file("tests/baden-wuerttemberg.osm").unwrap();
+    //let mut rn = osm::read_from_osm_file("tests/saarland.osm").unwrap();
     println!("Reducing RoadNetwork");
     rn.reduce_to_largest_connected_component();
     
@@ -31,15 +29,22 @@ fn main() {
     let mut total_visited = 0;
     let mut total_duration = Duration::new(0, 0); 
     let mut rng = thread_rng();
-    let distr = rand::distributions::Uniform::new_inclusive(0, rn.nodes.len());
+    let distr = rand::distributions::Uniform::new_inclusive(0, rn.nodes.len()-1);
     //let alt = LandmarkAlgorithm::new(&rn.nodes, &mut rn.adjacent_arcs, 42);
     let algo = ArcFlagsAlgorithm { };
 
     // Saarland: [49.20..49.25] × [6.95..7.05]
-    algo.precompute_arc_flags(&rn.nodes, &mut rn.adjacent_arcs, 49.20, 49.25, 6.95, 7.05);
+    // BaWu use [47.95..48.05] × [7.75..7.90] (Freiburg + surroundings)
+    //let targets = algo.precompute_arc_flags(&rn.nodes, &mut rn.adjacent_arcs, 49.20, 49.25, 6.95, 7.05); //saarland
+    let targets = algo.precompute_arc_flags(&rn.nodes, &mut rn.adjacent_arcs, 47.95, 48.05, 7.75, 7.90); //bawu
 
-    for _i in 0..100 {
+    let mut counter = 0;
+    loop {
         let (start, stop) = (rng.sample(distr), rng.sample(distr));
+        if targets.contains(&stop) == false { continue; }
+
+        counter += 1;
+
         let now = Instant::now();
         //println!("Computing heuristic");
         //println!("H: {:?}", h);
@@ -49,6 +54,7 @@ fn main() {
             total_cost = total_cost + cost;
             total_visited = total_visited + visited.len();
         }
+        if counter==100 {break};
     }
     println!("Average Cost, visited.len, time per query: {:?}, {}, {:?}", total_cost/100, total_visited/100, total_duration/100);
 
@@ -86,7 +92,6 @@ fn main() {
 //
 #[cfg(test)]
 mod test {
-    use efficient_route_planning::dijkstra;
 
     #[test]
     fn test_cost_between_two_nodes() {

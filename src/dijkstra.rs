@@ -1,3 +1,8 @@
+// Author: Vinh-An Trinh
+// Copyright 2021
+
+// My implementation of Lecture 2 class given by Prof. Dr. Hannah Bast <bast@informatik.uni-freiburg.de>
+// Class wiki: https://ad-wiki.informatik.uni-freiburg.de/teaching/EfficientRoutePlanningSS2012
 use std::collections::BinaryHeap;
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -75,18 +80,27 @@ impl Dijkstra {
         priority_queue.push(current_node);
 
 
+        let mut number_of_arcs_skipped = 0;
+
         while let Some(State {idx, cost, f_score: _}) = priority_queue.pop() {
 
             // println!("Processing: {}, idx: {}, cost: {}", head_node_id, idx, cost);
             visited.insert(idx);
 
+            if cost > g_score[idx] { continue; }
+
             if Some(idx) == t {
+                if self.consider_arc_flags == true  {
+                    println!("Number of arcs skipped: {}", number_of_arcs_skipped);
+                    
+                }
                 return (Some(g_score[idx]), visited, previous_node, g_score);
             }
 
             for arc in arcs[idx].iter_mut() {
                 if visited.contains(&arc.idx) { continue; }
-                if self.consider_arc_flags == true && arc.arc_flag == false { continue; }
+                if self.consider_arc_flags == true && arc.arc_flag == false { number_of_arcs_skipped += 1; continue; }
+                // if self.consider_arc_flags == false && arc.arc_flag == true { continue; }
 
                 if arc.cost + cost < g_score[arc.idx] {
                     g_score[arc.idx] = arc.cost + cost;
@@ -96,13 +110,16 @@ impl Dijkstra {
                     }
                     priority_queue.push(State{idx: arc.idx, cost: arc.cost+cost, f_score: g_score[arc.idx] + h_value});
                     previous_node.insert(arc.idx as usize, idx);
-                    arc.arc_flag=true;
+                    // arc.arc_flag=true;
                 }
             }
             //println!("priority_queue: {:?}", priority_queue);
         }
 
-        //println!("Previous node len: {:?}", previous_node.len());
+        if self.consider_arc_flags == true  {
+            println!("Number of arcs skipped: {}", number_of_arcs_skipped);
+
+        }
         //println!("Target not reached: {}/{:?}", source_node_id, target_node_id);
         (None, visited, previous_node, g_score)
     }

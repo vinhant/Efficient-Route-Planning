@@ -68,3 +68,20 @@ Average Cost, visited.len, time per query: 1732, 3619, 3.232474ms
 Ba-wu Results:
 Precompute time: 82.0354238s
 Average Cost, visited.len, time per query: 5902, 46619, 50.542873ms
+
+## End of Lecture 4 Thoughts
+Thoughts on Rust
+- This lecture didn't any new Rust features not used in previous lectures, so not much thoughts
+
+
+#### Arcs
+
+Saarland Results:
+Number of nodes in region: 17923
+Precompute time: 17.5840271s
+Average Cost, visited.len, time per query: 1399, 11481, 8.284471ms
+
+Ba-wu Results:
+Number of nodes in region: 27462
+Precompute time: 228.1937336s
+Average Cost, visited.len, time per query: 6697, 18220, 23.535766ms
