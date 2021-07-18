@@ -69,7 +69,7 @@ impl ArcFlagsAlgorithm {
                 // Only compute this once
                 if !boundary_node_processed {
                     boundary_node_processed = true;
-                    let (_, visited, previous_node, _) = dijkstra.compute_shortest_path(nodes, adjacent_arcs, u, None, |_,_| 0);
+                    let (_, _, previous_node, _) = dijkstra.compute_shortest_path(nodes, adjacent_arcs, u, None, |_,_| 0);
                     //println!("i/Visited.len/previous_node.len: {}/{}/{}", i, visited.len(), previous_node.len());
                     // Need to set the arc_flag on the reverse way
                     for (head, tail) in previous_node {

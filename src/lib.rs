@@ -100,6 +100,15 @@ impl RoadNetwork {
         None
     }
 
+    pub fn get_node_from_lat_lng(&self, lat: &f64, lng: &f64) -> Option<&Node> {
+        for i in 0..self.nodes.len() {
+            if self.nodes[i].latitude == *lat && self.nodes[i].longitude == *lng {
+                return Some(&self.nodes[i]);
+            }
+        }
+        None
+    }
+
     // Create an empty network (with zero nodes and zero arcs).
     pub fn new() -> RoadNetwork {
         RoadNetwork { /*num_nodes: 0, num_edges: 0, */ adjacent_arcs: vec!(), nodes: vec!(), node_id_to_index: HashMap::new()}
